@@ -1,0 +1,545 @@
+---
+title: "Bayesian Project"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(knitr)
+library(LearnBayes)
+source('TeachBayes.r')
+```
+
+## Data 
+**Let's firstly take a look at the data checking for any irregularities and anything that may help us overall in displaying our results.**
+```{r}
+#Import data and print head of the data
+dat <- read.csv('Bayesian Data.csv')
+head(dat)
+```
+**As we can see our columns seem to be in a format that makes it tedious to call in the future, let's firstly rename these columns.**
+
+```{r}
+#Let's firstly rename the column 'What college do you go to?':
+names(dat)[1] <- 'College'
+#Now let's rename the column 'what year are you in?':
+names(dat)[2] <- 'Year'
+#Rename the column 'What gender are you?':
+names(dat)[3] <- 'Gender'
+#Rename the column 'How much do you think the average student in NUIG spends on a night out?'
+names(dat)[4] <- 'Expected_Spending'
+#Rename the column 'What year do you expect spends the most money?':
+names(dat)[5] <- 'Expected_Year'
+#Rename the column 'How much have you spent on your last 2-4 nights out on alcohol?:
+names(dat)[6] <- 'Spending'
+head(dat)
+```
+**As we can see our columns are now much easier to call. Let's take a look at some of our columns which have numerical values and see if there are any outliers.**
+
+```{r}
+dat$Expected_Spending
+dat$Spending
+```
+
+**As we can see there doesn't seem to be any crazy outliers in our data, to double check let's plot these using a boxplot.**
+
+```{r}
+boxplot(dat$Expected_Spending,
+  ylab = "Expected Spending"
+)
+boxplot(dat$Spending,
+  ylab = "Spending"
+)
+```
+
+**As we can see from the boxplot for Expected Spending seems good i.e. seems to be no outliers however our boxplot for actual spending seems to have an outlier when spending=120. I don't feel this is an outlier in our case as I have seen people spend that much on a night out and therefore will leave this alone.**
+
+**Now let's take a look to see if our data would be a good representation for each year i.e. is there a similar amount of data for each year.**
+```{r}
+firstyr_pct = sum(dat$Year=='1st Year')/length(dat$Year)
+secondyr_pct = sum(dat$Year=='2nd Year')/length(dat$Year)
+thirdyr_pct = sum(dat$Year=='3rd Year')/length(dat$Year)
+fourthyr_pct = sum(dat$Year=='4th Year')/length(dat$Year)
+
+slices <- c(firstyr_pct, secondyr_pct, thirdyr_pct, fourthyr_pct)
+lbls <- c('First Years', 'Second Years', 'Third Years', 'Fourth Years')
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+   main="Pie Chart of Years")
+```
+
+**There seems to be a good distribution of the data by Year group and therefore we can be happy that our findings wont be effected by lack of data for specific years. Now let's take a look at what year the participants of the survey thought would spend the most on drink.**
+
+```{r}
+firstyr_pct1 = sum(dat$Expected_Year=='1st Year')/length(dat$Expected_Year)
+secondyr_pct1 = sum(dat$Expected_Year=='2nd Year')/length(dat$Expected_Year)
+thirdyr_pct1 = sum(dat$Expected_Year=='3rd Year')/length(dat$Expected_Year)
+fourthyr_pct1 = sum(dat$Expected_Year=='4th Year')/length(dat$Expected_Year)
+
+slices <- c(firstyr_pct1, secondyr_pct1, thirdyr_pct1, fourthyr_pct1)
+lbls <- c('First Years', 'Second Years', 'Third Years', 'Fourth Years')
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+   main="Pie Chart of Years")
+```
+
+**To no surprise it is believed that first years spend the most on nights out according to our data. Let's check to see if this is true. We will do this by comparing point estimates for posteriors for 1st years, 2nd years, 3rd years and 4th years. **
+
+```{r}
+#Plot prior
+m0 <- mean(dat$Expected_Spending)
+s0 <- sd(dat$Expected_Spending)
+
+x <- seq(0, 100, length=100)
+Prior <- dnorm(x, mean=m0, sd=s0)
+plot(x, Prior, type='l',lwd=3,xlim = c(0,100), ylim=c(0,0.04),col = 'blue', main = 'Prior Plot', xlab = 'theta', ylab = '')
+
+```
+
+**As we can see our prior distribution is centred around 55 and follows a normal distribution**
+
+```{r}
+#Plot prior, data and posterior
+firstyr_spending <- dat$Spending[dat$Year=='1st Year']
+xbar_1stYrs <- mean(firstyr_spending)
+se_1stYrs <- var(firstyr_spending)/sqrt(length(firstyr_spending))
+
+Prior <- c(m0, s0)
+Data_1stYrs <- c(xbar_1stYrs, s0)
+Posterior_1stYrs <- round(normal_update(Prior, Data_1stYrs),3)
+x <- seq(0,100, length=1000)
+priorx_1stYrs <- dnorm(x, mean=m0, sd=s0)
+datax_1stYrs <- dnorm(x, mean=xbar_1stYrs, sd=se_1stYrs)
+postx_1stYrs <- dnorm(x, mean=Posterior_1stYrs[1], sd=Posterior_1stYrs[2])
+plot(x, priorx_1stYrs, type='l',lwd=3,xlim = c(0,100), ylim=c(0,0.05),col = 'blue', main = '', xlab = 'theta', ylab = '')
+lines(x, datax_1stYrs,col='black',lwd=3)
+lines(x, postx_1stYrs,col='red',lwd=3)
+legend("topright", c("Prior","Data","Posterior"), lty = 1, lwd= 3, col = c('blue','black','red'))
+```
+
+**As we can see our posterior has shifted(headed toward our data) to the left which indicates that 1st years may spend less than the average student. Let's take a look at a point and interval estimate for theta.**
+
+```{r}
+mysims_1stYrs <- rnorm(10000, mean=Posterior_1stYrs[1], sd=Posterior_1stYrs[2])
+median(mysims_1stYrs)
+normal_interval(0.95, Posterior_1stYrs)
+```
+
+**As this is a normal distribution our mode=median=mean and will all be roughly around 42.75(for first years). With 95% probability 1st years spend between 22.04 and 63.78. We will take 42.75 to be our figure to compare to other years. Let's repeat the steps above for various years and see which year does spend the most. **
+
+```{r}
+#Second Years
+secondyr_spending <- dat$Spending[dat$Year=='2nd Year']
+xbar_2ndYrs <- mean(secondyr_spending)
+se_2ndYrs <- var(secondyr_spending)/sqrt(length(secondyr_spending))
+Data_2ndYrs <- c(xbar_2ndYrs, s0)
+Posterior_2ndYrs <- round(normal_update(Prior, Data_2ndYrs),3)
+mysims_2ndYrs <- rnorm(10000, mean=Posterior_2ndYrs[1], sd=Posterior_2ndYrs[2])
+median(mysims_2ndYrs)
+normal_interval(0.95, Posterior_2ndYrs)
+
+#Third Years
+thirdyr_spending <- dat$Spending[dat$Year=='3rd Year']
+xbar_3rdYrs <- mean(thirdyr_spending)
+se_3rdYrs <- var(thirdyr_spending)/sqrt(length(thirdyr_spending))
+Data_3rdYrs <- c(xbar_3rdYrs, s0)
+Posterior_3rdYrs <- round(normal_update(Prior, Data_3rdYrs),3)
+mysims_3rdYrs <- rnorm(10000, mean=Posterior_3rdYrs[1], sd=Posterior_3rdYrs[2])
+median(mysims_3rdYrs)
+normal_interval(0.95, Posterior_3rdYrs)
+
+#Fourth Years
+fourthyr_spending <- dat$Spending[dat$Year=='4th Year']
+xbar_4thYrs <- mean(fourthyr_spending)
+se_4thYrs <- var(fourthyr_spending)/sqrt(length(fourthyr_spending))
+Data_4thYrs <- c(xbar_4thYrs, s0)
+Posterior_4thYrs <- round(normal_update(Prior, Data_4thYrs),3)
+mysims_4thYrs <- rnorm(10000, mean=Posterior_4thYrs[1], sd=Posterior_4thYrs[2])
+median(mysims_4thYrs)
+normal_interval(0.95, Posterior_4thYrs)
+```
+
+**As we can see First Years spend the least followed by fourth years then third years and finally second years spending the most on average. Is this surprising? I feel the survey users may have presumed that first year students spend more as they go out more but it makes sense that first years spend the least as they do usually go out more and therefore have less to spend.  Let's repeat the same steps above to see whether Males or Females spend more on nights out on average. Let's firstly take a look at how many males and females we have data from.**
+
+```{r}
+males = sum(dat$Gender=='Male')/length(dat$Gender)
+females = 1-males
+
+
+slices <- c(males, females)
+lbls <- c('Males', 'Females')
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+   main="Pie Chart of Genders")
+```
+
+**As we can see we have a good split in the data of males to females and can therefore be more confident in our results. Let's now create posteriors for both males and females and computer point estimates and 95% confidence intervals to analyse which gender spends more on average.**
+
+```{r}
+#Males
+male_spending <- dat$Spending[dat$Gender=='Male']
+xbar_males <- mean(male_spending)
+se_males <- var(male_spending)/sqrt(length(male_spending))
+Data_males <- c(xbar_males, s0)
+Posterior_males <- round(normal_update(Prior, Data_males),3)
+mysims_males <- rnorm(10000, mean=Posterior_males[1], sd=Posterior_males[2])
+median(mysims_males)
+normal_interval(0.95, Posterior_males)
+
+#Females
+female_spending <- dat$Spending[dat$Gender=='Female']
+xbar_females <- mean(female_spending)
+se_females <- var(female_spending)/sqrt(length(female_spending))
+Data_females <- c(xbar_females, s0)
+Posterior_females <- round(normal_update(Prior, Data_4thYrs),3)
+mysims_females <- rnorm(10000, mean=Posterior_females[1], sd=Posterior_females[2])
+median(mysims_females)
+normal_interval(0.95, Posterior_females)
+```
+
+**From our data we can see that on average males spend more than females. With 95% probability men spend between 29.12 and 70.86, with 95% probability females spend between 25.60 and 67.34. **
+
+
+
+
+
+
+**A lecturer has taken a look at our findings and is interested that first years spend the least and second years spend the most. The lecturer asks you to investigate the posterior mean difference between first year students spending and second year students spending. Does a difference exist? If so, what is the difference?**
+```{r}
+xbar1 <- mean(firstyr_spending)
+xbar2 <- mean(secondyr_spending)
+Prior <- c(m0, s0)
+
+se1 <- sd(firstyr_spending)/sqrt(length(firstyr_spending))
+se2 <- sd(secondyr_spending)/sqrt(length(secondyr_spending))
+DataFirstYears <- c(xbar1, se1)
+DataSecondYears <- c(xbar2, se2)
+Posterior1 <- normal_update(Prior, DataFirstYears)
+Posterior2 <- normal_update(Prior, DataSecondYears)
+many_normal_plots(list(Prior, Posterior1, Posterior2))
+```
+
+**As we can see in red our Prior data seems to be centred around 53 and is quite spread. We can see our posterior for first years represented by the green curve as we can see this seems to be centred around 33 and is much more precise than our prior. Finally we can see our posterior represented by the blue curve which seems to be less precise than our first year posterior but seems to be centred around 55 instead of 30 which suggests that second years do spend more money than first years. To check this lets calculate the difference between the posteriors**
+
+```{r}
+PosteriorDiff <- c(Posterior1[1]-Posterior2[1], sqrt(Posterior1[2]^2+Posterior2[2]^2))
+x <- seq(-40,20, length=1000)
+diff_comp <- dnorm(x, mean=PosteriorDiff[1], sd=PosteriorDiff[2])
+plot(x, diff_comp, type='l', col='red',xlim = c(-40,20), lwd=3, main = 'Computed Posterior Difference')
+```
+
+```{r}
+normal_interval(0.95, round(PosteriorDiff, 3))
+```
+
+**The posterior mean difference is between -32.107 and -12.519 euros with probability 0.95. Since this is strictly negative, we can see there is a high probability that first years do spend less than second years.With 95% probability first years spend between 12.52 and 32.11 less than second years. As 0 is not in the interval we can suggest that a difference does exist.** 
+
+**You report your findings to your lecturer and he informs you that he has asked some first years and they seem to be spending much more than the second years he has been talking to, he would like you to check against your model if these students may be outliers? **
+
+```{r}
+1-pnorm(0, mean = PosteriorDiff[1], sd=PosteriorDiff[2])
+```
+**The probability that the difference is greater than 0 is 0.0000004005258 i.e. the probability that first years spend more than second years is 0.0000004005258 and therefore we can conclude that these students are outliers. **
+
+**We present the findings to the lecturer and he realises he had an error in his data with his updated data he has found that first years spend 13% less than second years. He wants us to use our bayesian analysis to test this claim.**
+
+```{r}
+prop1stYears <- Posterior2[1]*0.87
+pnorm(prop1stYears, mean=Posterior1[1], sd=Posterior1[2])
+```
+**The probability that first years spend 13% less than second years is 100%.**
+
+**Let's take a look at doing this by simulation. Simulation is often used for more complex issue let's see if it has any effect on our findings.**
+```{r}
+firstyearsims <- rnorm(10000, mean=Posterior1[1], sd=Posterior1[2])
+finalyearsims <- rnorm(10000, mean=Posterior2[1], sd=Posterior2[2])
+diff_sims <- firstyearsims - finalyearsims
+
+plot(density(diff_sims), col='red', lwd=3, main='Simulated Posterior Difference', xlab= 'Mean Alcohol Expense')
+```
+
+**As we can see we have similar results when using simulated data, the simulated posterior difference distribution seems to be more bellshaped than our previous posterior difference but also seems to be centred around -25.**
+
+```{r}
+quantile(diff_sims, probs= c(0.025, 0.975))
+```
+
+**As we can see our confidence intervals are almost identical and we can therefore be confident that both our ways were done correctly.**
+
+
+
+
+
+
+**Now let's take a look to see if a difference does exist between males and females.**
+```{r}
+xbar1 <- mean(male_spending)
+xbar2 <- mean(female_spending)
+
+se1 <- sd(male_spending)/sqrt(length(male_spending))
+se2 <- sd(female_spending)/sqrt(length(female_spending))
+DataMales <- c(xbar1, se1)
+DataFemales <- c(xbar2, se2)
+Posterior1 <- normal_update(Prior, DataMales)
+Posterior2 <- normal_update(Prior, DataFemales)
+many_normal_plots(list(Prior, Posterior1, Posterior2))
+```
+
+**The posterior for males is centred around 47.2, the posterior for females is centred around 42.4. We can see that both posteriors seem to be very close and because of this I feel like a difference does not exist, let's take a look to see if this is true.**
+
+```{r}
+PosteriorDiff <- c(Posterior1[1]-Posterior2[1], sqrt(Posterior1[2]^2+Posterior2[2]^2))
+x <- seq(-40,20, length=1000)
+diff_comp <- dnorm(x, mean=PosteriorDiff[1], sd=PosteriorDiff[2])
+plot(x, diff_comp, type='l', col='red',xlim = c(-40,20), lwd=3, main = 'Computed Posterior Difference')
+```
+
+```{r}
+normal_interval(0.95, round(PosteriorDiff, 3))
+```
+**With 95% probability the posterior mean difference in spending for males and females is between -6.82 and 16.44. As 0 is included in the interval we cannot suggest that a difference exists.**
+
+
+
+
+
+##RJags
+
+**Thus far, we have worked with prior distributions and likelihoods of a sufficiently convenient form to simplify the construction of the posterior. In reality, we need to be able to work with much more complex models which relate to real life problems. RJags allows us to specify prior distributions that accuractly reflect the prior information rather than use a prior of a mathematically convenient form. i.e. allows us to create a much more accurate prior. One thing you need to be careful with when using RJags on a complex model with hundreds of parameters is the curse of dimensionality, as our data is quite simple we do not need to worry about this.RJags uses the Gibbs Sampling algorithm which is another way of constructing a transition kernel to produce a Markov chain with the desired target output. The aim of the Gibbs sampler is to make sampling from a high-dimensional distribution more tractable by sampling from a collection of more manageable smaller dimensional distributions. **
+
+```{r}
+#Hyperior distribution
+p.theta <- rnorm(1000, m0, s0)
+p.sigma <- runif(1000, 5, 50)
+#Store samples in a dataframe
+samples <- data.frame(p.theta, p.sigma)
+head(samples)
+#Plot density plots of hyperprior values
+plot(density(p.theta))
+plot(density(p.sigma))
+```
+
+**I specified the hyperiors for theta following a normal distribution with our mean and standard deviation and the hyperpriors for sigma following a uniform distribution with min=5 and max=50. We can see our simulated values for theta and sigma in our dataframe and they look good. Let's now define and compile our model.**
+
+
+```{r}
+library(rjags)
+# DEFINE the model
+spending_model <- "model{
+      # Likelihood model for X[i]
+      for(i in 1:length(X)) {
+          X[i] ~ dnorm(theta,sigma^(-2))
+      }
+  
+      # Prior models for theta and sigma
+      theta ~ dnorm(53.21, 15.06^(-2))
+      sigma ~ dunif(5, 50)
+  }"
+
+#Compile the model
+spending_jags <- jags.model(textConnection(spending_model), data = list(X = dat$Spending),
+    inits = list(.RNG.name = "base::Wichmann-Hill", .RNG.seed = 1989))
+
+#Burn in 10000 iterations
+spending_sim <- update(spending_jags, n.iter = 10000)
+
+#Simulate the posterior
+spending_sim <- coda.samples(model=spending_jags, variable.names=c("theta","sigma"), n.iter=1000)
+plot(spending_sim)
+```
+
+**As we can see our trace plots are not well mixed with an obvious pattern emerging therefore let's increase the number of simulations from the the posterior to see if this helps.**
+
+```{r}
+spending_sim <- update(spending_jags, n.iter = 10000)
+spending_sim <- coda.samples(model=spending_jags, variable.names=c("theta","sigma"), n.iter=10000)
+plot(spending_sim)
+#summarise the simulations
+summary(spending_sim)
+#Store the chains in a data frame
+spending_chains <- data.frame(sim=1:10000, spending_sim[[1]])
+#Check out the head of spending_chains
+head(spending_chains)
+```
+
+**Our traceplots are now very well mixed, the density of sigma is right skewed and the density of theta is symmetrical. We can also see that the mean standard error ratio is large suggesting that the chain has converged. To get a better idea of how the model is behaving we will repeat the above steps n times where n is the number of chains. This allows us initialize with n random starting points and if all the chains converge to the same distribution then that tells us that we have ended up at that unique stationary distribution that is our posterior of interest. This can be easily done in RJags by specifying n.chains=n when compiling the model.**
+
+```{r}
+#Compile the model using m=4 chains
+spending_jags_multi <- jags.model(textConnection(spending_model), data=list(X=dat$Spending), n.chains=4)
+
+#Burn in 10000 iterations
+spending_sim_multi <- update(spending_jags_multi, n.iter=10000)
+
+#Simulate the posterior
+spending_sim_multi <- coda.samples(model=spending_jags_multi, variable.names=c("theta","sigma"), n.iter=10000)
+#Plot results
+plot(spending_sim_multi)
+```
+
+**We cannot interpret much from the above trace plots therefore let's present these trace plots in an easy and interpretable way.**
+
+```{r}
+library(dplyr)
+#Initialize dataframe
+spending_chains_multi <- data.frame(sim=rep(1:10000,4),
+                                    chain=c(rep(1,10000),
+                                            rep(2,10000),
+                                            rep(3,10000),
+                                            rep(4,10000)),
+                                    rbind(spending_sim_multi[[1]],
+                                          spending_sim_multi[[2]],
+                                          spending_sim_multi[[3]],
+                                          spending_sim_multi[[4]]))
+#Plot multiple chain trace plots in ggplot
+spending_chains_multi %>% filter(sim<1000) %>%
+ggplot(aes(x=sim,y=theta,color=as.factor(chain))) + geom_line() +
+  geom_smooth(aes(color=as.factor(chain)),se=FALSE)
+```
+
+**Taking a look at the mean line there are some slight discrepancies but there are no vast differences between the chains. Note: this is only for the first 1000 simulations but it would follow a similar pattern for all of the 10000 simulations. This can be quite tedious and sometimes difficult to analyse therefore instead we analyse the Gelman-Ruben statistic which measures the between chain variability and then with each of the chains look at the variability within that chain. It then gets a weighted sum of the between chain and within chain variances from which we can calculate our Gelman-Ruben Statistic. Let's calculate the Gelman-Ruben statistic for our model.**
+
+```{r}
+#Calculate Gelman-Ruben statistic
+gelman.diag(spending_sim_multi)
+#Gelman-Ruben plot
+gelman.plot(spending_sim_multi)
+```
+
+**As we can see our Gelman_Ruben statistic is equal to 1 suggesting that the chains have converged. Also taking a look at our plots we can see that our first plot seems to very quickly converge to 1 over iterations. This is not quite as smooth for our second plot but taking a look at the Y-axis for our second plot we can see that it is very small and therefore we do not need to be worried about this. Finally, we should check for autocorrelation i.e. is there serial correlation in my iterations from simulation to simulation, why is it important to check for autocorrelation? Excessive autocorrelation may indicate issues with the model specification which may be caused by clustering in the data not being accounted for. **
+
+```{r}
+autocorr.plot(spending_sim)
+```
+
+**Looking at our graphs we can see that for both sigma and theta there only seems to be minimal autocorellation and therefore we should be confident that we have correctly specified our model. Let's now calculate plot and interpret a 95% credible interval for theta the mean university spending**
+
+```{r}
+ci95 <- quantile(spending_chains$theta, probs=c(0.025, 0.975))
+ci95
+#Plot 95% credible interval
+ggplot(spending_chains, aes(x=theta)) + geom_density() + 
+geom_vline(xintercept = ci95, col = 'red', lty = 'dashed')
+
+```
+
+**The mean spending for students in NUIG on alcohol on a night out is between 38.08 and 50.50 euros with 95% probability. Let's take a look at what the population thought is the mean spending for students in NUIG on alcohol on a night out and calculate the probability of spending being greater than his figure.**
+
+```{r}
+mean(dat$Expected_Spending)
+```
+```{r}
+#Calculate the probabiulity that the mean spending for students in NUIG on alcohol on a night out is greater than 53.21429
+sum(spending_sim[[1]]>53.21429)/length(spending_sim[[1]])
+```
+**The probability that spending is greater than 53.21 is 0.00135.**
+
+##Bayesian Regression
+
+**In Bayesian Linear Regression we formulate linear regression using probability distributions rather than point estimates. The reponse y is not estimated as a single value but is assumed to be drawn from a probability distribution. We have to firstly convert our qualitative variables to numerical values, let's do this.**
+```{r}
+#We need to change Year, Gender and Expected_Year to a numerical value (regression cannot interpret qualitative data)
+
+#Duplicating data
+dat2 <- dat
+#Converting column to character
+dat2$Expected_Year <- as.character(dat2$Expected_Year)
+dat2$Year <- as.character(dat2$Year)
+dat2$Gender <- as.character(dat2$Gender)
+#Male =0 , Female=1
+dat2[dat2 == 'Male'] <- '1'
+dat2[dat2 == 'Female'] <- '2'
+#4th Year = 4, 3rd Year = 3, etc
+dat2[dat2 == "4th Year"] <- "4"
+dat2[dat2 == "3rd Year"] <- "3"
+dat2[dat2 == "2nd Year"] <- "2"
+dat2[dat2 == "1st Year"] <- "1"
+#Converting column back to factor
+dat2$Year <- as.factor(dat2$Year)
+dat2$Year <- as.factor(dat2$Year)
+dat2$Gender <- as.factor(dat2$Gender)
+```
+
+**We now must define our prior distributions for our regression parameters. Let $\beta_0$ be the intercept, $\beta_1$ be the coefficient for Year and $\beta_2$ be the coefficient for gender. Our response y represents spending.**
+
+```{r}
+#Let's define the prior distributions
+#b_0 represents the average spending for males in 1st Year
+
+prior_b0 <- rnorm(10000, mean=mean(male_spending), sd=sd(male_spending))
+prior_b1 <- rnorm(10000, mean=5, sd=5)
+prior_b2 <- rnorm(10000, mean=5, sd=7.5)
+```
+
+```{r}
+#Define the model
+regress_model <- "model{
+    # Define model for data Y[i]
+    for(i in 1:length(Y)) {
+      Y[i] ~ dnorm(m[i], s^(-2))
+      m[i] <- a + b*X1[i] + c[X2[i]]
+    }
+
+    # Define the a, b, c and s priors
+    a ~ dnorm(47, 22^(-2))
+    b ~ dnorm(5, 5^(-2))
+    c[1] <- 0
+    c[2] ~ dnorm(5, 2^(-2))
+    s ~ dunif(0, 15)
+}"  
+
+regress_jags <- jags.model(textConnection(regress_model), 
+                        data = list(Y = dat2$Spending, X1 = dat2$Year, X2 = dat2$Gender),
+                        n.chains = 4)
+
+#Burn in model
+regress_sim <- update(regress_jags, n.iter=10000)
+regress_sim <- coda.samples(model=regress_jags, variable.names = c("a","b","c","s"), n.iter=20000)
+plot(regress_sim, density=FALSE)
+plot(regress_sim, trace=FALSE)
+```
+
+**Taking a look at the density of a it seems to follow a normal distribution centred around 37, the density of b also seems to follow a normal distribution centred around 1.5. The density of c[2] also follows a normal distribution centred around 3. The density of s is negatively skewed. As we have used multiple chains it is difficult to analyse the trace plots for convergence therefore let's print out our gelman-ruben statistics and also plot them to ensure our models have converged.**
+
+```{r}
+gelman.diag(regress_sim[,-3])
+gelman.plot(regress_sim[,-3])
+```
+
+**As we can see our gelman-ruben statistic is equal to 1 suggesting that our model has converged. Taking a look at our gelman ruben plots we can see that the model converged quite quickly to 1 and seems to remain at 1 for the majority of the time. Let's now take a look at making predictions. Let's now take a look at how each of the independent variables effect our predictor**
+
+```{r}
+summary(regress_sim)[2]
+```
+
+**From the above table we can see that while keeping all other variables constant for one unit increase in Year spending will go up by 1.851158. The 95% credible interval for year is -1.19 and 4.89, as 0 is included in this interval we cannot suggest that Year has an effect on alcohol spending. We can also see that while keeping all other variables constant if the person is a female they would be expected to spend 3.104119 more than a female on a night out.The 95% credible interval for for gender is between -0.42 and 6.63. Now, let's use our model to make a prediction about a 3rd year male student.**
+
+```{r}
+library(dplyr)
+#Save the simulations as a df
+regress_chains <- data.frame(regress_sim[[1]])
+#work out mean spending for a 3rd year male student
+regress_chains <- regress_chains %>% mutate(m_m3 = a+ b*3 + c.1.)
+#Simulate from normal dist 
+regress_chains <- regress_chains %>% mutate(Y_m3 = rnorm(n=length(regress_chains$m_m3), mean=m_m3, sd=s))
+#Print first 6 predictions
+head(regress_chains)
+#Construct a posterior credible interval for the prediction
+ci <- quantile(regress_chains$Y_m3, c(0.025, 0.975))
+ci
+ggplot(regress_chains, aes(x = Y_m3)) + geom_density() + 
+    geom_vline(xintercept = ci, color = "red")
+```
+
+**With 95% probability the spending of a male 3rd year nuig student on a night out would be between 13.94 and 72.91**
+
+**Hierarchical modelling is another modelling technique which constructs prior distributions in a hierarchical fashion. In a hierarchical model, parameters have distributions which are conditional on additional parameters(hyperparameters). Hierarchical models are often used for complex models which have hundreds of variables and therefore I won't be creating one for my data as I feel it is too simple to highlight the benefit of using these hierarchical models.**
